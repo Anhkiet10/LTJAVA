@@ -1,3 +1,38 @@
 spring:
   application:
     name: backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/webnewpaper
+    username: postgres
+    password: "123456"
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+app:
+  jwt:
+    secret: "ChangeThisToARandomSecretKeyAtLeast32BytesLong!!"
+    expiration-minutes: 60
+  sync:
+    contact-email: "gmail@ut.edu.vn"
+    openalex-base-url: "https://api.openalex.org"
+    per-page: 25
+    seed-keywords:
+      - "large language models"
+      - "federated learning"
+      - "graph neural networks"
+  ocr:
+    tessdata-path: "C:\\Program Files\\Tesseract-OCR\\tessdata"
+
+  openai:
+    base-url: "https://generativelanguage.googleapis.com/v1beta/openai"
+    api-key: "AQ.----"
+    embedding-model: "gemini-embedding-001"
+    chat-model: "gemini-flash-latest"
+  qdrant:
+    base-url: "http://localhost:6333"
+    collection-name: "paper_chunks"
