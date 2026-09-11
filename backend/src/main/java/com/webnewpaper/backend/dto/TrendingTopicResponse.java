@@ -1,11 +1,9 @@
 package com.webnewpaper.backend.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.*;
 
-@Getter @AllArgsConstructor
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class TrendingTopicResponse {
-    private Long keywordId;
     private String name;
-    private long paperCount;
+    private Long paperCount;
 }
