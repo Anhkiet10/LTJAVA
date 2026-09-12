@@ -11,6 +11,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 public class PaperService {
 
@@ -24,17 +27,36 @@ public class PaperService {
 
     public PageResponse<PaperSummaryResponse> search(String keyword, String author, String journal,
                                                    Integer year, Long keywordId, Pageable pageable) {
-    Page<ResearchPaper> results = paperRepository.findAll(
-            ResearchPaperSpecifications.search(blankToNull(keyword), blankToNull(author), blankToNull(journal), year, keywordId),
-            pageable);
-    Page<PaperSummaryResponse> mapped = results.map(paperMapper::toSummary);
-    return PageResponse.from(mapped);
+        Page<ResearchPaper> results = paperRepository.findAll(
+                ResearchPaperSpecifications.search(blankToNull(keyword), blankToNull(author), blankToNull(journal), year, keywordId),
+                pageable);
+        Page<PaperSummaryResponse> mapped = results.map(paperMapper::toSummary);
+        return PageResponse.from(mapped);
     }
 
     public PaperDetailResponse getById(Long id) {
         ResearchPaper paper = paperRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy bài báo với id: " + id));
         return paperMapper.toDetail(paper);
+    }
+
+    
+    public List<PaperSummaryResponse> findByAuthorName(String authorName) {
+        if (authorName == null || authorName.isBlank()) {
+            throw new IllegalArgumentException("Tên tác giả không được để trống");
+        }
+        return paperRepository.findByAuthorNameContaining(authorName.trim())
+                .stream()
+                .map(paperMapper::toSummary)
+                .collect(Collectors.toList());
+    }
+
+    
+    public long countPapersByKeyword(Long keywordId) {
+        if (keywordId == null) {
+            throw new IllegalArgumentException("Keyword ID không được để trống");
+        }
+        return paperRepository.countByKeywordId(keywordId);
     }
 
     private String blankToNull(String value) {
