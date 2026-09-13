@@ -4,10 +4,8 @@ import com.webnewpaper.backend.config.QdrantProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 public class QdrantClient {
@@ -15,253 +13,90 @@ public class QdrantClient {
     private final RestClient qdrantRestClient;
     private final QdrantProperties qdrantProperties;
 
-    public QdrantClient(
-            RestClient qdrantRestClient,
-            QdrantProperties qdrantProperties) {
-
+    public QdrantClient(RestClient qdrantRestClient, QdrantProperties qdrantProperties) {
         this.qdrantRestClient = qdrantRestClient;
         this.qdrantProperties = qdrantProperties;
     }
 
-
     public void ensureCollection(int vectorSize) {
-
-        String collectionName =
-                qdrantProperties.getCollectionName();
-
         try {
-
-            qdrantRestClient
-                    .get()
-                    .uri("/collections/{name}", collectionName)
+            qdrantRestClient.get()
+                    .uri("/collections/{name}", qdrantProperties.getCollectionName())
                     .retrieve()
                     .body(Map.class);
-
-        } catch (Exception e) {
-
-
-            Map<String, Object> vectorConfig = new HashMap<>();
-
-            vectorConfig.put("size", vectorSize);
-            vectorConfig.put("distance", "Cosine");
-
-            Map<String, Object> requestBody = new HashMap<>();
-
-            requestBody.put("vectors", vectorConfig);
-
-            qdrantRestClient
-                    .put()
-                    .uri("/collections/{name}", collectionName)
-                    .body(requestBody)
+        } catch (Exception notFound) {
+            qdrantRestClient.put()
+                    .uri("/collections/{name}", qdrantProperties.getCollectionName())
+                    .body(Map.of("vectors", Map.of("size", vectorSize, "distance", "Cosine")))
                     .retrieve()
                     .body(Map.class);
         }
     }
 
-
-    public record ChunkPoint(
-            long pointId,
-            float[] vector,
-            Long paperId,
-            String paperTitle,
-            int chunkIndex,
-            String content) {
-    }
-
+    public record ChunkPoint(long pointId, float[] vector, Long paperId, String paperTitle, int chunkIndex, String content) {}
 
     public void upsertPoints(List<ChunkPoint> points) {
+        List<Map<String, Object>> qdrantPoints = points.stream()
+                .map(p -> Map.<String, Object>of(
+                        "id", p.pointId(),
+                        "vector", toFloatList(p.vector()),
+                        "payload", Map.of(
+                                "paper_id", p.paperId(),
+                                "paper_title", p.paperTitle(),
+                                "chunk_index", p.chunkIndex(),
+                                "content", p.content()
+                        )
+                ))
+                .collect(Collectors.toList());
 
-        List<Map<String, Object>> qdrantPoints =
-                new ArrayList<>();
-
-        for (ChunkPoint point : points) {
-
-            Map<String, Object> payload =
-                    new HashMap<>();
-
-            payload.put("paper_id", point.paperId());
-            payload.put("paper_title", point.paperTitle());
-            payload.put("chunk_index", point.chunkIndex());
-            payload.put("content", point.content());
-
-            Map<String, Object> qdrantPoint =
-                    new HashMap<>();
-
-            qdrantPoint.put(
-                    "id",
-                    point.pointId()
-            );
-
-            qdrantPoint.put(
-                    "vector",
-                    toFloatList(point.vector())
-            );
-
-            qdrantPoint.put(
-                    "payload",
-                    payload
-            );
-
-            qdrantPoints.add(qdrantPoint);
-        }
-
-        Map<String, Object> requestBody =
-                new HashMap<>();
-
-        requestBody.put(
-                "points",
-                qdrantPoints
-        );
-
-        String collectionName =
-                qdrantProperties.getCollectionName();
-
-        qdrantRestClient
-                .put()
-                .uri(
-                        "/collections/{name}/points",
-                        collectionName
-                )
-                .body(requestBody)
+        qdrantRestClient.put()
+                .uri("/collections/{name}/points", qdrantProperties.getCollectionName())
+                .body(Map.of("points", qdrantPoints))
                 .retrieve()
                 .body(Map.class);
     }
 
-    public record SearchHit(
-            double score,
-            Long paperId,
-            String paperTitle,
-            int chunkIndex,
-            String content) {
-    }
-
+    public record SearchHit(double score, Long paperId, String paperTitle, int chunkIndex, String content) {}
 
     @SuppressWarnings("unchecked")
-    public List<SearchHit> search(
-            float[] queryVector,
-            int limit,
-            Long filterPaperId) {
-
-        Map<String, Object> requestBody =
-                new HashMap<>();
-
-        List<Float> vector =
-                toFloatList(queryVector);
-
-        requestBody.put(
-                "vector",
-                vector
-        );
-
-        requestBody.put(
-                "limit",
-                limit
-        );
-
-        requestBody.put(
-                "with_payload",
-                true
-        );
+    public List<SearchHit> search(float[] queryVector, int limit, Long filterPaperId) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("vector", toFloatList(queryVector));
+        body.put("limit", limit);
+        body.put("with_payload", true);
 
         if (filterPaperId != null) {
-
-            Map<String, Object> match =
-                    Map.of(
-                            "value",
-                            filterPaperId
-                    );
-
-            Map<String, Object> condition =
-                    Map.of(
-                            "key",
-                            "paper_id",
-                            "match",
-                            match
-                    );
-
-            Map<String, Object> filter =
-                    Map.of(
-                            "must",
-                            List.of(condition)
-                    );
-
-            requestBody.put(
-                    "filter",
-                    filter
-            );
+            body.put("filter", Map.of("must", List.of(
+                    Map.of("key", "paper_id", "match", Map.of("value", filterPaperId))
+            )));
         }
 
-        String collectionName =
-                qdrantProperties.getCollectionName();
+        Map<String, Object> response = qdrantRestClient.post()
+                .uri("/collections/{name}/points/search", qdrantProperties.getCollectionName())
+                .body(body)
+                .retrieve()
+                .body(Map.class);
 
-        Map<String, Object> response =
-                qdrantRestClient
-                        .post()
-                        .uri(
-                                "/collections/{name}/points/search",
-                                collectionName
-                        )
-                        .body(requestBody)
-                        .retrieve()
-                        .body(Map.class);
-
-        List<Map<String, Object>> results =
-                (List<Map<String, Object>>)
-                        response.get("result");
-
-        List<SearchHit> hits =
-                new ArrayList<>();
+        List<Map<String, Object>> results = (List<Map<String, Object>>) response.get("result");
+        List<SearchHit> hits = new ArrayList<>();
 
         for (Map<String, Object> result : results) {
-
-            Map<String, Object> payload =
-                    (Map<String, Object>)
-                            result.get("payload");
-
-            double score =
-                    ((Number) result.get("score"))
-                            .doubleValue();
-
-            Long paperId =
-                    ((Number) payload.get("paper_id"))
-                            .longValue();
-
-            String paperTitle =
-                    (String) payload.get("paper_title");
-
-            int chunkIndex =
-                    ((Number) payload.get("chunk_index"))
-                            .intValue();
-
-            String content =
-                    (String) payload.get("content");
-
-            SearchHit hit =
-                    new SearchHit(
-                            score,
-                            paperId,
-                            paperTitle,
-                            chunkIndex,
-                            content
-                    );
-
-            hits.add(hit);
+            Map<String, Object> payload = (Map<String, Object>) result.get("payload");
+            hits.add(new SearchHit(
+                    ((Number) result.get("score")).doubleValue(),
+                    ((Number) payload.get("paper_id")).longValue(),
+                    (String) payload.get("paper_title"),
+                    ((Number) payload.get("chunk_index")).intValue(),
+                    (String) payload.get("content")
+            ));
         }
 
         return hits;
     }
 
-
     private List<Float> toFloatList(float[] arr) {
-
-        List<Float> list =
-                new ArrayList<>();
-
-        for (float value : arr) {
-
-            list.add(value);
-        }
-
+        List<Float> list = new ArrayList<>(arr.length);
+        for (float f : arr) list.add(f);
         return list;
     }
 }
