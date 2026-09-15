@@ -1,23 +1,33 @@
 package com.webnewpaper.backend.services;
 
 import com.webnewpaper.backend.dto.TrendingTopicResponse;
+import com.webnewpaper.backend.entity.Keyword;
 import com.webnewpaper.backend.repositories.KeywordRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class TrendingTopicService {
+
     private final KeywordRepository keywordRepository;
 
-    public List<TrendingTopicResponse> getTrendingTopics(int limit) {
-        return keywordRepository.findTopKeywordsByPaperCount(PageRequest.of(0, limit))
-                .stream()
-                .map(obj -> new TrendingTopicResponse((String) obj[0], (Long) obj[1]))
+    public TrendingTopicService(KeywordRepository keywordRepository) {
+        this.keywordRepository = keywordRepository;
+    }
+
+    public List<TrendingTopicResponse> getTopKeywords(int limit) {
+        Pageable pageable = PageRequest.of(0, limit);
+        List<Object[]> rows = keywordRepository.findTopKeywordsByPaperCount(pageable);
+
+        return rows.stream()
+                .map(row -> {
+                    Keyword keyword = (Keyword) row[0];
+                    Long count = (Long) row[1];
+                    return new TrendingTopicResponse(keyword.getId(), keyword.getName(), count);
+                })
                 .collect(Collectors.toList());
     }
 }

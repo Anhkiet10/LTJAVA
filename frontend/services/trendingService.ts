@@ -1,15 +1,27 @@
-export interface TrendingTopic {
+import { getToken } from "@/lib/auth";
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+
+export type TrendingTopic = {
+  keywordId: number;
   name: string;
   paperCount: number;
-}
+};
 
-export async function fetchTrendingTopics(limit: number = 10): Promise<TrendingTopic[]> {
-  try {
-    const res = await fetch(`http://localhost:8080/api/trending-topics?limit=${limit}`);
-    if (!res.ok) throw new Error("Failed to fetch trending topics");
-    return await res.json();
-  } catch (error) {
-    console.error("Error fetching trending topics:", error);
-    return [];
-  }
+export async function getTrendingTopics(
+  limit: number = 8,
+): Promise<TrendingTopic[]> {
+  const token = getToken();
+  if (!token) return [];
+
+  const res = await fetch(
+    `${API_BASE_URL}/api/trending-topics?limit=${limit}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+
+  if (!res.ok) return [];
+  return res.json();
 }
