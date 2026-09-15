@@ -10,9 +10,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/papers")
 public class PaperController {
@@ -40,23 +37,5 @@ public class PaperController {
     @GetMapping("/{id}")
     public ResponseEntity<PaperDetailResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(paperService.getById(id));
-    }
-
-    
-    @GetMapping("/by-author")
-    public ResponseEntity<List<PaperSummaryResponse>> getByAuthorName(
-            @RequestParam("name") String authorName) {
-        return ResponseEntity.ok(paperService.findByAuthorName(authorName));
-    }
-
-    
-    @GetMapping("/count-by-keyword")
-    public ResponseEntity<Map<String, Object>> countByKeyword(
-            @RequestParam("keywordId") Long keywordId) {
-        long count = paperService.countPapersByKeyword(keywordId);
-        return ResponseEntity.ok(Map.of(
-                "keywordId", keywordId,
-                "totalPapers", count
-        ));
     }
 }

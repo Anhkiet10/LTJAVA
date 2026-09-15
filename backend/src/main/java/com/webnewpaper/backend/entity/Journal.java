@@ -1,4 +1,3 @@
-// Author: Dang Quoc Viet
 package com.webnewpaper.backend.entity;
 
 import jakarta.persistence.*;
